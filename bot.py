@@ -15,12 +15,14 @@ bot = commands.Bot(
 @bot.event
 async def on_ready():
     init()
-    await bot.tree.sync()
+
+    synced = await bot.tree.sync()
 
     if not checker.is_running():
         checker.start()
 
     print("CS2 Market Bot online")
+    print(f"Synchronizované příkazy: {[cmd.name for cmd in synced]}")
 
 
 @bot.tree.command(name="price", description="Zjistí cenu CS2 skinu")
