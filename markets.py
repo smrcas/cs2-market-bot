@@ -2,13 +2,19 @@ import os
 import aiohttp
 from dotenv import load_dotenv
 
+print("✅ MARKETS.PY SE NAČETL", flush=True)
+
 load_dotenv()
 
 CSFLOAT_API_KEY = os.getenv("CSFLOAT_API_KEY", "").strip()
+
 CSFLOAT_URL = "https://csfloat.com/api/v1/listings"
 
 
 async def get_market_price(skin: str) -> int:
+
+    print(f"✅ GET_MARKET_PRICE VOLÁNO PRO: {skin}", flush=True)
+
     headers = {}
 
     if CSFLOAT_API_KEY:
@@ -22,30 +28,97 @@ async def get_market_price(skin: str) -> int:
 
     timeout = aiohttp.ClientTimeout(total=15)
 
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(CSFLOAT_URL, headers=headers, params=params) as response:
-            data = await response.json()
+    try:
 
-            if response.status != 200:
-                print("CSFloat chyba:", response.status, data)
-                return 0
+        async with aiohttp.ClientSession(timeout=timeout) as session:
 
-    listings = data.get("data", [])
+            async with session.get(
+                CSFLOAT_URL,
+                headers=headers,
+                params=params
+            ) as response:
 
-    if not listings:
-        print("Nenalezeno:", skin)
+                print(
+                    f"✅ STATUS: {response.status}",
+                    flush=True
+                )
+
+                text = await response.text()
+
+                print(
+                    f"✅ ODPOVED: {text[:1000]}",
+                    flush=True
+                )
+
+                if response.status != 200:
+                    return 0
+
+                data = await response.json()
+
+        print(
+            f"✅ JSON: {data}",
+            flush=True
+        )
+
+        listings = data.get("data", [])
+
+        if not listings:
+
+            print(
+                f"❌ SKIN NENALEZEN: {skin}",
+                flush=True
+            )
+
+            return 0
+
+        item = listings[0]
+
+        print(
+            f"✅ ITEM: {item}",
+            flush=True
+        )
+
+        price = item.get("price", 0)
+
+        if not price:
+            return 0
+
+        price_usd = float(price) / 100
+
+        print(
+            f"✅ USD CENA: {price_usd}",
+            flush=True
+        )
+
+        price_czk = round(
+            price_usd * 23
+        )
+
+        print(
+            f"✅ CZK CENA: {price_czk}",
+            flush=True
+        )
+
+        return price_czk
+
+    except Exception as e:
+
+        print(
+            f"❌ CHYBA CSFLOAT: {e}",
+            flush=True
+        )
+
         return 0
 
-    item = listings[0]
 
-    print("DEBUG ITEM:", item)
+async def get_spread(skin: str):
 
-    price_cents = item.get("price", 0)
+    csfloat_price = await get_market_price(skin)
 
-    if not price_cents:
-        return 0
+    buff_price = 0
 
-    price_usd = price_cents / 100
-    price_czk = round(price_usd * 23)
-
-    return price_czk
+    return (
+        csfloat_price,
+        buff_price,
+        csfloat_price - buff_price
+    )
