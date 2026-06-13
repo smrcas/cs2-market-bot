@@ -16,41 +16,36 @@ async def get_market_price(skin: str) -> int:
 
     params = {
         "market_hash_name": skin,
-        "limit": 1,
+        "limit": 5,
         "sort_by": "lowest_price"
     }
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=15)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(CSFLOAT_URL, headers=headers, params=params) as response:
-            text = await response.text()
+            data = await response.json()
 
             if response.status != 200:
-                print("CSFloat chyba:", response.status, text)
+                print("CSFloat chyba:", response.status, data)
                 return 0
-
-            data = await response.json()
 
     listings = data.get("data", [])
 
     if not listings:
-        print(f"Skin nenalezen: {skin}")
+        print("Nenalezeno:", skin)
         return 0
 
     item = listings[0]
 
-    price = item.get("price", 0)
+    print("DEBUG ITEM:", item)
 
-    if price == 0:
+    price_cents = item.get("price", 0)
+
+    if not price_cents:
         return 0
 
-    price_usd = price / 100
+    price_usd = price_cents / 100
     price_czk = round(price_usd * 23)
 
     return price_czk
-
-
-async def get_spread(skin: str):
-    csfloat_price = await get_market_price(skin)
-    buff_price = 0
-
-    return csfloat_price, buff_price, csfloat_price - buff_price
