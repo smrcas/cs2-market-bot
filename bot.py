@@ -1,22 +1,29 @@
 import discord
 from discord.ext import commands, tasks
 
-from config import TOKEN, ALERT_CHANNEL_ID, CHECK_INTERVAL
+from config import TOKEN, CHECK_INTERVAL
 from database import *
-from markets import get_market_price, get_spread, search_skins
+from markets import get_market_price, search_skins
+
+
 bot = commands.Bot(
     command_prefix="!",
     intents=discord.Intents.default()
 )
 
+
 @bot.event
 async def on_ready():
     init()
     await bot.tree.sync()
-    checker.start()
+
+    if not checker.is_running():
+        checker.start()
+
     print("CS2 Market Bot online")
 
-@bot.tree.command(name="price")
+
+@bot.tree.command(name="price", description="Zjistí cenu CS2 skinu")
 async def price(interaction: discord.Interaction, skin: str):
     await interaction.response.defer(thinking=True)
 
@@ -38,7 +45,9 @@ async def price(interaction: discord.Interaction, skin: str):
         await interaction.followup.send(
             f"⚠️ Chyba při načítání ceny:\n```{e}```"
         )
-        @bot.tree.command(name="search", description="Vyhledá podobné CS2 skiny na CSFloat")
+
+
+@bot.tree.command(name="search", description="Vyhledá podobné CS2 skiny na CSFloat")
 async def search(interaction: discord.Interaction, query: str):
     await interaction.response.defer(thinking=True)
 
@@ -60,7 +69,9 @@ async def search(interaction: discord.Interaction, query: str):
     await interaction.followup.send(
         f"🔎 Výsledky pro: **{query}**\n\n{text}"
     )
-@bot.tree.command(name="watch")
+
+
+@bot.tree.command(name="watch", description="Začne sledovat skin")
 async def watch(interaction: discord.Interaction, skin: str):
     await interaction.response.defer(ephemeral=True)
 
@@ -77,19 +88,27 @@ async def watch(interaction: discord.Interaction, skin: str):
             f"⚠️ Chyba při ukládání skinu:\n```{e}```",
             ephemeral=True
         )
-@bot.tree.command(name="unwatch")
-async def unwatch(interaction: discord.Interaction, skin:str):
+
+
+@bot.tree.command(name="unwatch", description="Přestane sledovat skin")
+async def unwatch(interaction: discord.Interaction, skin: str):
     remove_watch(interaction.user.id, skin)
+
     await interaction.response.send_message(
-        f"❌ Přestal jsem sledovat {skin}"
+        f"❌ Přestal jsem sledovat: **{skin}**",
+        ephemeral=True
     )
 
-@bot.tree.command(name="watchlist")
+
+@bot.tree.command(name="watchlist", description="Zobrazí sledované skiny")
 async def watchlist(interaction: discord.Interaction):
     items = get_user_watches(interaction.user.id)
+
     await interaction.response.send_message(
-        "📋 Sleduješ:\n" + ("\n".join(items) if items else "Nic")
+        "📋 Sleduješ:\n" + ("\n".join(items) if items else "Nic"),
+        ephemeral=True
     )
+
 
 @tasks.loop(seconds=CHECK_INTERVAL)
 async def checker():
@@ -97,12 +116,16 @@ async def checker():
         wid, user, skin, old = row
         new = await get_market_price(skin)
 
-        if old and abs(new-old) > 500:
+        if old and abs(new - old) > 500:
             u = await bot.fetch_user(user)
+
             await u.send(
-                f"🚨 ALERT\n{skin}\n{old} Kč → {new} Kč"
+                f"🚨 ALERT\n"
+                f"💎 {skin}\n"
+                f"{old} Kč → {new} Kč"
             )
 
-        update_price(wid,new)
+        update_price(wid, new)
+
 
 bot.run(TOKEN)
