@@ -3,8 +3,7 @@ from discord.ext import commands, tasks
 
 from config import TOKEN, ALERT_CHANNEL_ID, CHECK_INTERVAL
 from database import *
-from markets import get_market_price, get_spread
-
+from markets import get_market_price, get_spread, search_skins
 bot = commands.Bot(
     command_prefix="!",
     intents=discord.Intents.default()
@@ -39,6 +38,28 @@ async def price(interaction: discord.Interaction, skin: str):
         await interaction.followup.send(
             f"⚠️ Chyba při načítání ceny:\n```{e}```"
         )
+        @bot.tree.command(name="search", description="Vyhledá podobné CS2 skiny na CSFloat")
+async def search(interaction: discord.Interaction, query: str):
+    await interaction.response.defer(thinking=True)
+
+    results = await search_skins(query)
+
+    if not results:
+        await interaction.followup.send(
+            f"❌ Nic jsem nenašel pro: **{query}**\n"
+            f"Zkus třeba: `AK-47 | Redline` nebo `M9 Bayonet`"
+        )
+        return
+
+    text = ""
+
+    for item in results[:10]:
+        text += f"💎 **{item['name']}**\n"
+        text += f"💰 {item['price_czk']} Kč\n\n"
+
+    await interaction.followup.send(
+        f"🔎 Výsledky pro: **{query}**\n\n{text}"
+    )
 @bot.tree.command(name="watch")
 async def watch(interaction: discord.Interaction, skin: str):
     await interaction.response.defer(ephemeral=True)
